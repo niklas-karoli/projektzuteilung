@@ -20,16 +20,17 @@
       }
       pre { background: #eee; padding: 10px; overflow: auto; white-space: pre-wrap; word-wrap: break-word; }
       button { padding: 10px 20px; cursor: pointer; margin-top: 10px; }
+      .deployment-tip { background: #fff3e0; border-left: 5px solid #ff9800; padding: 15px; margin-top: 20px; color: #e65100; }
     </style>
     <script>
       (function() {
-        console.log("Bootstrap-Script geladen");
-        function showErr(title, msg, stack) {
+        function showErr(title, msg, stack, isDeploymentIssue) {
           var d = document.getElementById('error-display');
           if (!d) return;
           d.style.display = 'block';
           d.innerHTML = '<h1>' + title + '</h1><p>' + msg + '</p>' +
             (stack ? '<pre>' + stack + '</pre>' : '') +
+            (isDeploymentIssue ? '<div class="deployment-tip"><strong>Wichtiger Hinweis:</strong> Es scheint, als ob GitHub Pages die falschen Dateien ausliefert (die Quelldateien statt der fertigen App).<br><br><strong>Lösung:</strong> Gehe in deinem GitHub-Repository auf <em>Settings > Pages</em> und ändere unter "Build and deployment" die <em>Source</em> von "Deploy from a branch" auf <strong>"GitHub Actions"</strong>.</div>' : '') +
             '<button onclick="location.reload(true)">Neu laden</button>' +
             '<button onclick="localStorage.clear(); sessionStorage.clear(); location.reload(true)" style="margin-left:10px">Reset & Neu laden</button>';
         }
@@ -41,7 +42,9 @@
 
         window.addEventListener('error', function(e) {
           if (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK') {
-            showErr('Ressourcenfehler', 'Datei konnte nicht geladen werden oder hat den falschen MIME-Typ: ' + (e.target.src || e.target.href), 'Stelle sicher, dass die Dateiendungen korrekt sind und der Server sie als application/javascript ausliefert.');
+            var url = e.target.src || e.target.href;
+            var isDeploymentIssue = url.indexOf('.tsx') !== -1;
+            showErr('Ressourcenfehler', 'Datei konnte nicht geladen werden: ' + url, 'Stelle sicher, dass die Dateiendungen korrekt sind und der Server sie als application/javascript ausliefert.', isDeploymentIssue);
           }
         }, true);
       })();

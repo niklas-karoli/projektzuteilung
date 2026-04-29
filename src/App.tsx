@@ -272,7 +272,7 @@ function App() {
       </main>
 
       <footer className="bg-white border-t py-6 text-center text-gray-500">
-        proudly developed with love by Niklas Karoli <PrideHeart className="w-6 h-6 inline-block align-text-bottom ml-1" />
+        proudly developed with love by Niklas Karoli <PrideHeart className="w-8 h-8 inline-block align-text-bottom ml-1" />
       </footer>
     </div>
   );

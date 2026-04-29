@@ -8,7 +8,6 @@ import { Student, Project, AllocationState } from './types';
 import { getGradeLevel } from './utils/parser';
 import { allocate } from './utils/allocator';
 import { generateExports } from './utils/exporter';
-import { PrideHeart } from './components/PrideHeart';
 
 function App() {
   const [state, setState] = useState<AllocationState>({
@@ -271,9 +270,8 @@ function App() {
         )}
       </main>
 
-      <footer className="bg-white border-t py-6 text-center text-gray-500 flex items-center justify-center gap-1">
-        <span>proudly developed with love by Niklas Karoli</span>
-        <PrideHeart className="w-5 h-5 inline-block" />
+      <footer className="bg-white border-t py-6 text-center text-gray-500">
+        proudly developed with love by Niklas Karoli ♥️
       </footer>
     </div>
   );

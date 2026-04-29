@@ -4,9 +4,49 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Projektzuteilung 2026</title>
+    <style>
+      #root:empty::before {
+        content: 'Initialisiere...';
+        display: flex; justify-content: center; align-items: center; height: 100vh;
+        font-family: sans-serif; color: #666;
+      }
+      #error-display {
+        display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: white; color: #d32f2f; padding: 20px; z-index: 9999;
+        font-family: sans-serif; overflow: auto;
+      }
+      pre { background: #eee; padding: 10px; overflow: auto; white-space: pre-wrap; word-wrap: break-word; }
+      button { padding: 10px 20px; cursor: pointer; margin-top: 10px; }
+    </style>
+    <script>
+      (function() {
+        console.log("Bootstrap-Script geladen");
+        function showErr(title, msg, stack) {
+          var d = document.getElementById('error-display');
+          if (!d) return;
+          d.style.display = 'block';
+          d.innerHTML = '<h1>' + title + '</h1><p>' + msg + '</p>' +
+            (stack ? '<pre>' + stack + '</pre>' : '') +
+            '<button onclick="location.reload(true)">Neu laden</button>' +
+            '<button onclick="localStorage.clear(); sessionStorage.clear(); location.reload(true)" style="margin-left:10px">Reset & Neu laden</button>';
+        }
+
+        window.onerror = function(m, u, l, c, e) {
+          showErr('Ladefehler (JS)', m, (e && e.stack) ? e.stack : 'URL: ' + u + '\nL:' + l + ' C:' + c);
+          return false;
+        };
+
+        window.addEventListener('error', function(e) {
+          if (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK') {
+            showErr('Ressourcenfehler', 'Datei konnte nicht geladen werden oder hat den falschen MIME-Typ: ' + (e.target.src || e.target.href), 'Stelle sicher, dass die Dateiendungen korrekt sind und der Server sie als application/javascript ausliefert.');
+          }
+        }, true);
+      })();
+    </script>
   </head>
   <body class="antialiased text-gray-900">
+    <div id="error-display"></div>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="module" src="src/main.tsx"></script>
   </body>
 </html>

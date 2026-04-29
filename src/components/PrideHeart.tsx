@@ -9,7 +9,7 @@ export const PrideHeart: React.FC<{ className?: string }> = ({ className }) => {
       xmlns="http://www.w3.org/2000/svg"
     >
       <defs>
-        <linearGradient id="prideGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+        <linearGradient id="prideGradient" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#E40303" />
           <stop offset="16.6%" stopColor="#E40303" />
           <stop offset="16.6%" stopColor="#FF8C00" />

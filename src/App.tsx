@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { FileUpload } from './components/FileUpload';
+import { PrideHeart } from './components/PrideHeart';
 import { StudentTable } from './components/StudentTable';
 import { ProjectTable } from './components/ProjectTable';
 import { LoadingAnimation } from './components/LoadingAnimation';
@@ -271,7 +272,7 @@ function App() {
       </main>
 
       <footer className="bg-white border-t py-6 text-center text-gray-500">
-        proudly developed with love by Niklas Karoli ♥️
+        proudly developed with love by Niklas Karoli <PrideHeart className="w-4 h-4 inline-block align-text-bottom ml-1" />
       </footer>
     </div>
   );

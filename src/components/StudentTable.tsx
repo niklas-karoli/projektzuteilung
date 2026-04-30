@@ -13,6 +13,7 @@ export const StudentTable: React.FC<StudentTableProps> = ({ students, onUpdateSt
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const sortStudents = (students: Student[]) => {
     if (!sortConfig) return students;
@@ -38,7 +39,8 @@ export const StudentTable: React.FC<StudentTableProps> = ({ students, onUpdateSt
   const filteredStudents = sortStudents(
     students.filter(s =>
       s.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.className.toLowerCase().includes(searchTerm.toLowerCase())
+      s.className.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s.wishes.some(w => w.toLowerCase().includes(searchTerm.toLowerCase()))
     )
   );
 
@@ -64,10 +66,10 @@ export const StudentTable: React.FC<StudentTableProps> = ({ students, onUpdateSt
           />
         </div>
         <button
-          onClick={onAddStudent}
+          onClick={() => setIsAddModalOpen(true)}
           className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
         >
-          <Plus className="w-4 h-4 mr-2" /> Schüler hinzufügen
+          <Plus className="w-4 h-4 mr-2" /> Schüler:in hinzufügen
         </button>
       </div>
 
@@ -144,35 +146,119 @@ export const StudentTable: React.FC<StudentTableProps> = ({ students, onUpdateSt
             }}
           />
       )}
+      {isAddModalOpen && (
+          <StudentEditModal
+            onClose={() => setIsAddModalOpen(false)}
+            onSave={(newStudent) => {
+                // Since handleAddStudent in App.tsx doesn't accept parameters yet,
+                // we'll need to adapt how students are added.
+                // For now, let's assume we use a specialized handler or onAddStudent.
+                (onAddStudent as any)(newStudent);
+                setIsAddModalOpen(false);
+            }}
+            isNew
+          />
+      )}
     </div>
   );
 };
 
-const StudentEditModal: React.FC<{ student: Student; onClose: () => void; onSave: (updated: Partial<Student>) => void }> = ({ student, onClose, onSave }) => {
-    const [data, setData] = useState({ ...student });
+interface StudentEditModalProps {
+    student?: Student;
+    onClose: () => void;
+    onSave: (updated: any) => void;
+    isNew?: boolean;
+}
+
+const StudentEditModal: React.FC<StudentEditModalProps> = ({ student, onClose, onSave, isNew }) => {
+    const [data, setData] = useState(student ? { ...student } : {
+        firstName: '',
+        lastName: '',
+        className: '',
+        wishes: ['', '', ''],
+        antiWishes: ['', '', ''],
+        didNotVote: false
+    });
+
+    const handleWishChange = (idx: number, val: string) => {
+        const newWishes = [...(data.wishes || [])];
+        newWishes[idx] = val;
+        setData({ ...data, wishes: newWishes });
+    };
+
+    const handleAntiWishChange = (idx: number, val: string) => {
+        const newAntiWishes = [...(data.antiWishes || [])];
+        newAntiWishes[idx] = val;
+        setData({ ...data, antiWishes: newAntiWishes });
+    };
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg p-6 w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto">
                 <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xl font-bold">Schüler bearbeiten</h3>
+                    <h3 className="text-xl font-bold">{isNew ? 'Schüler:in hinzufügen' : 'Schüler:in bearbeiten'}</h3>
                     <button onClick={onClose}><X className="w-6 h-6" /></button>
                 </div>
                 <div className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Vorname</label>
-                        <input className="w-full border p-2 rounded" value={data.firstName} onChange={e => setData({...data, firstName: e.target.value})} />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Nachname</label>
-                        <input className="w-full border p-2 rounded" value={data.lastName} onChange={e => setData({...data, lastName: e.target.value})} />
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Vorname</label>
+                            <input className="w-full border p-2 rounded" value={data.firstName} onChange={e => setData({...data, firstName: e.target.value})} />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Nachname</label>
+                            <input className="w-full border p-2 rounded" value={data.lastName} onChange={e => setData({...data, lastName: e.target.value})} />
+                        </div>
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Klasse</label>
-                        <input className="w-full border p-2 rounded" value={data.className} onChange={e => setData({...data, className: e.target.value})} />
+                        <input className="w-full border p-2 rounded" value={data.className} onChange={e => setData({...data, className: e.target.value})} placeholder="z.B. 7c oder Q1a" />
                     </div>
-                    <div className="flex gap-4">
-                        <button className="flex-grow bg-blue-600 text-white py-2 rounded" onClick={() => onSave(data)}>Speichern</button>
+
+                    <div className="border-t pt-4">
+                        <div className="flex items-center justify-between mb-2">
+                            <label className="block text-sm font-bold text-gray-700">Projektwünsche</label>
+                            <button
+                                onClick={() => setData({...data, didNotVote: !data.didNotVote, wishes: data.didNotVote ? ['', '', ''] : [], antiWishes: data.didNotVote ? ['', '', ''] : []})}
+                                className={`text-xs px-2 py-1 rounded border transition-colors ${data.didNotVote ? 'bg-red-600 text-white border-red-600' : 'bg-gray-100 text-gray-600 border-gray-300'}`}
+                            >
+                                {data.didNotVote ? 'Nicht gewählt aktiv' : 'Nicht gewählt?'}
+                            </button>
+                        </div>
+                        {!data.didNotVote && (
+                            <div className="grid grid-cols-3 gap-2">
+                                {[0, 1, 2].map(i => (
+                                    <input
+                                        key={i}
+                                        placeholder={`Wunsch ${i+1}`}
+                                        className="border p-2 rounded text-sm"
+                                        value={data.wishes?.[i] || ''}
+                                        onChange={e => handleWishChange(i, e.target.value)}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {!data.didNotVote && (
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">Projekt-Ausschlüsse (NICHT-Wünsche)</label>
+                            <div className="grid grid-cols-3 gap-2">
+                                {[0, 1, 2].map(i => (
+                                    <input
+                                        key={i}
+                                        placeholder={`Ausschluss ${i+1}`}
+                                        className="border p-2 rounded text-sm"
+                                        value={data.antiWishes?.[i] || ''}
+                                        onChange={e => handleAntiWishChange(i, e.target.value)}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="flex gap-4 pt-4">
+                        <button className="flex-grow bg-blue-600 text-white py-2 rounded font-bold" onClick={() => onSave(data)}>Speichern</button>
                         <button className="flex-grow border py-2 rounded" onClick={onClose}>Abbrechen</button>
                     </div>
                 </div>

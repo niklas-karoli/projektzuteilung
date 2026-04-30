@@ -1,5 +1,5 @@
 import { jsPDF } from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import { Document, Packer, Paragraph, Table, TableCell, TableRow, WidthType, AlignmentType, HeadingLevel } from "docx";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
@@ -70,7 +70,7 @@ async function addPdfAndDocx(folder: JSZip, filename: string, title: string, hea
   // PDF
   const doc = new jsPDF();
   doc.text(title, 14, 15);
-  (doc as any).autoTable({
+  autoTable(doc, {
     head: [headers],
     body: data,
     startY: 20,

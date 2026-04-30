@@ -36,7 +36,8 @@ export const parseHtmlTable = (html: string): Student[] => {
 
     const wishes = wishIndices.map(idx => cells[idx]).filter(Boolean);
     const antiWishes = antiWishIndices.map(idx => cells[idx]).filter(Boolean);
-    const className = cells[classIdx] || '';
+    const rawClassName = cells[classIdx] || '';
+    const className = normalizeClassName(rawClassName);
 
     const errors: string[] = [];
 
@@ -54,9 +55,9 @@ export const parseHtmlTable = (html: string): Student[] => {
     });
 
     // Simple class validation (Number + Letter or EF/Q1/Q2)
-    const classRegex = /^(\d+|EF|Q1|Q2)[a-zA-Z]?$/i;
-    if (!classRegex.test(className.replace(/\s/g, ''))) {
-      errors.push(`Ungültige Klasse: "${className}"`);
+    const classRegex = /^(EF|Q1|Q2|\d+)[a-z]*$/i;
+    if (!classRegex.test(className)) {
+      errors.push(`Ungültige Klasse: "${rawClassName}"`);
     }
 
     return {
@@ -72,22 +73,36 @@ export const parseHtmlTable = (html: string): Student[] => {
   });
 };
 
+export const normalizeClassName = (className: string): string => {
+  const trimmed = className.replace(/\s+/g, '');
+  const match = trimmed.match(/^(\d+)([a-zA-Z]*)$/i);
+  if (match) {
+    const num = parseInt(match[1]);
+    const suffix = match[2].toLowerCase();
+    if (num === 11) return `EF${suffix}`;
+    if (num === 12) return `Q1${suffix}`;
+    if (num === 13) return `Q2${suffix}`;
+    return `${num}${suffix}`;
+  }
+  // For EF, Q1, Q2 already present, just normalize suffix
+  const matchSpecial = trimmed.match(/^(EF|Q1|Q2)([a-zA-Z]*)$/i);
+  if (matchSpecial) {
+    return `${matchSpecial[1].toUpperCase()}${matchSpecial[2].toLowerCase()}`;
+  }
+  return trimmed;
+};
+
 export const getGradeLevel = (className: string): string => {
-  const match = className.match(/^(\d+|EF|Q1|Q2)/i);
+  const match = className.match(/^(EF|Q1|Q2|\d+)/i);
   if (!match) return 'unknown';
   const val = match[1].toUpperCase();
-  if (val === 'EF') return '11';
-  if (val === 'Q1') return '12';
-  if (val === 'Q2') return '13';
   return val;
 };
 
 export const getGradeGroup = (grade: string): 'unter' | 'mittel' | 'ober' | 'unknown' => {
+  if (['EF', 'Q1', 'Q2'].includes(grade.toUpperCase())) return 'ober';
   const g = parseInt(grade);
-  if (isNaN(g)) {
-     if (['11', '12', '13', 'EF', 'Q1', 'Q2'].includes(grade.toUpperCase())) return 'ober';
-     return 'unknown';
-  }
+  if (isNaN(g)) return 'unknown';
   if (g <= 6) return 'unter';
   if (g <= 10) return 'mittel';
   return 'ober';

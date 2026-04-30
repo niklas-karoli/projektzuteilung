@@ -210,6 +210,7 @@ const StudentEditModal: React.FC<StudentEditModalProps> = ({ student, onClose, o
                             <input className="w-full border p-2 rounded" value={data.lastName} onChange={e => setData({...data, lastName: e.target.value})} />
                         </div>
                     </div>
+
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Klasse</label>
                         <input className="w-full border p-2 rounded" value={data.className} onChange={e => setData({...data, className: e.target.value})} placeholder="z.B. 7c oder Q1a" />
@@ -219,7 +220,7 @@ const StudentEditModal: React.FC<StudentEditModalProps> = ({ student, onClose, o
                         <div className="flex items-center justify-between mb-2">
                             <label className="block text-sm font-bold text-gray-700">Projektwünsche</label>
                             <button
-                                onClick={() => setData({...data, didNotVote: !data.didNotVote, wishes: data.didNotVote ? ['', '', ''] : []})}
+                                onClick={() => setData({...data, didNotVote: !data.didNotVote, wishes: data.didNotVote ? ['', '', ''] : [], antiWishes: data.didNotVote ? ['', '', ''] : []})}
                                 className={`text-xs px-2 py-1 rounded border transition-colors ${data.didNotVote ? 'bg-red-600 text-white border-red-600' : 'bg-gray-100 text-gray-600 border-gray-300'}`}
                             >
                                 {data.didNotVote ? 'Nicht gewählt aktiv' : 'Nicht gewählt?'}
@@ -240,20 +241,22 @@ const StudentEditModal: React.FC<StudentEditModalProps> = ({ student, onClose, o
                         )}
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-2">Projekt-Ausschlüsse (NICHT-Wünsche)</label>
-                        <div className="grid grid-cols-3 gap-2">
-                            {[0, 1, 2].map(i => (
-                                <input
-                                    key={i}
-                                    placeholder={`Ausschluss ${i+1}`}
-                                    className="border p-2 rounded text-sm"
-                                    value={data.antiWishes?.[i] || ''}
-                                    onChange={e => handleAntiWishChange(i, e.target.value)}
-                                />
-                            ))}
+                    {!data.didNotVote && (
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">Projekt-Ausschlüsse (NICHT-Wünsche)</label>
+                            <div className="grid grid-cols-3 gap-2">
+                                {[0, 1, 2].map(i => (
+                                    <input
+                                        key={i}
+                                        placeholder={`Ausschluss ${i+1}`}
+                                        className="border p-2 rounded text-sm"
+                                        value={data.antiWishes?.[i] || ''}
+                                        onChange={e => handleAntiWishChange(i, e.target.value)}
+                                    />
+                                ))}
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     <div className="flex gap-4 pt-4">
                         <button className="flex-grow bg-blue-600 text-white py-2 rounded font-bold" onClick={() => onSave(data)}>Speichern</button>

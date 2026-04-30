@@ -118,6 +118,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ students, projects, on
                         Klasse <ArrowUpDown className="inline w-3 h-3 ml-1" />
                     </th>
                     <th className="px-6 py-3">Wünsche</th>
+                    <th className="px-6 py-3">Anti-Wünsche</th>
                     <th className="px-6 py-3">Projekt (Ist)</th>
                     <th className="px-6 py-3">Status / Empfehlung</th>
                 </tr>
@@ -142,6 +143,13 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ students, projects, on
                                     <div className="flex gap-1">
                                         {student.wishes.map(w => (
                                             <span key={w} className={`px-1.5 py-0.5 rounded text-[10px] ${student.assignedProjectId === w ? 'bg-green-600 text-white font-bold' : 'bg-gray-100 text-gray-600'}`}>{w}</span>
+                                        ))}
+                                    </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                    <div className="flex gap-1">
+                                        {student.antiWishes.map(w => (
+                                            <span key={w} className="px-1.5 py-0.5 rounded text-[10px] bg-red-50 text-red-600">{w}</span>
                                         ))}
                                     </div>
                                 </td>
@@ -193,7 +201,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ students, projects, on
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
           <div className="p-4 bg-gray-50 border-b flex justify-between items-center">
-              <h3 className="font-bold">Projektauslastung</h3>
+              <h3 className="font-bold">Projektauslastung (Teilnehmer:innen)</h3>
               <select className="border rounded px-2 py-1 text-sm" onChange={e => setExpandedProject(e.target.value)} value={expandedProject || ''}>
                   <option value="">Projekt wählen...</option>
                   {projects.map(p => <option key={p.id} value={p.id}>Projekt {p.id}</option>)}
@@ -210,7 +218,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ students, projects, on
                               </div>
                               <div className="text-right">
                                   <span className={`text-lg font-bold ${p.currentParticipants > p.maxParticipants ? 'text-red-600' : 'text-green-600'}`}>
-                                      {p.currentParticipants} / {p.maxParticipants} Plätze
+                                      {p.currentParticipants} / {p.maxParticipants} Plätze (Teilnehmer:innen)
                                   </span>
                               </div>
                           </div>

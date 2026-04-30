@@ -123,16 +123,21 @@ function App() {
       }));
   };
 
-  const handleAddProject = () => {
-      const newId = String(Math.max(0, ...state.projects.map(p => parseInt(p.id)).filter(n => !isNaN(n))) + 1);
+  const handleAddProject = (projectData?: Partial<Project>) => {
+      const newId = projectData?.id || String(Math.max(0, ...state.projects.map(p => parseInt(p.id)).filter(n => !isNaN(n))) + 1);
       setState(prev => ({
           ...prev,
           projects: [...prev.projects, {
               id: newId,
-              maxParticipants: 20,
-              allowedGrades: ["5", "6", "7", "8", "9", "10", "EF", "Q1", "Q2"],
+              maxParticipants: projectData?.maxParticipants || 20,
+              allowedGrades: projectData?.allowedGrades || ["5", "6", "7", "8", "9", "10", "EF", "Q1", "Q2"],
               currentParticipants: 0
-          }]
+          }].sort((a, b) => {
+              const numA = parseInt(a.id);
+              const numB = parseInt(b.id);
+              if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+              return a.id.localeCompare(b.id);
+          })
       }));
   };
 

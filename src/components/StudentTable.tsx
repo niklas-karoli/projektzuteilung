@@ -298,7 +298,7 @@ const StudentEditModal: React.FC<StudentEditModalProps> = ({ student, onClose, o
                     <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-200">
                         <h4 className="text-lg font-bold text-gray-900 mb-2">Schüler:in löschen?</h4>
                         <p className="text-sm text-gray-500 mb-6">
-                            Möchten Sie <strong>{data.firstName} {data.lastName}</strong> wirklich unwiderruflich aus der Liste entfernen?
+                            Soll <strong>{data.firstName} {data.lastName}</strong> wirklich unwiderruflich aus der Liste entfernt werden?
                         </p>
                         <div className="flex gap-3">
                             <button

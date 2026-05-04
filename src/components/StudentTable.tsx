@@ -164,6 +164,19 @@ export const StudentTable: React.FC<StudentTableProps> = ({ students, onUpdateSt
             isNew
           />
       )}
+      {isAddModalOpen && (
+          <StudentEditModal
+            onClose={() => setIsAddModalOpen(false)}
+            onSave={(newStudent) => {
+                // Since handleAddStudent in App.tsx doesn't accept parameters yet,
+                // we'll need to adapt how students are added.
+                // For now, let's assume we use a specialized handler or onAddStudent.
+                (onAddStudent as any)(newStudent);
+                setIsAddModalOpen(false);
+            }}
+            isNew
+          />
+      )}
     </div>
   );
 };
@@ -217,6 +230,7 @@ const StudentEditModal: React.FC<StudentEditModalProps> = ({ student, onClose, o
                             <input className="w-full border p-2 rounded" value={data.lastName} onChange={e => setData({...data, lastName: e.target.value})} />
                         </div>
                     </div>
+
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Klasse</label>
                         <input className="w-full border p-2 rounded" value={data.className} onChange={e => setData({...data, className: e.target.value})} placeholder="z.B. 7c oder Q1a" />

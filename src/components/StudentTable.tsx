@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, ArrowUpDown, Pencil, AlertCircle, Plus, X } from 'lucide-react';
+import { Search, ArrowUpDown, Pencil, AlertCircle, Plus, X, Trash2 } from 'lucide-react';
 import { Student } from '../types';
 import { getGradeLevel } from '../utils/parser';
 
@@ -7,9 +7,10 @@ interface StudentTableProps {
   students: Student[];
   onUpdateStudent: (id: string, updated: Partial<Student>) => void;
   onAddStudent: () => void;
+  onDeleteStudent: (id: string) => void;
 }
 
-export const StudentTable: React.FC<StudentTableProps> = ({ students, onUpdateStudent, onAddStudent }) => {
+export const StudentTable: React.FC<StudentTableProps> = ({ students, onUpdateStudent, onAddStudent, onDeleteStudent }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -144,6 +145,23 @@ export const StudentTable: React.FC<StudentTableProps> = ({ students, onUpdateSt
                 onUpdateStudent(editingId, updated);
                 setEditingId(null);
             }}
+            onDelete={() => {
+                onDeleteStudent(editingId);
+                setEditingId(null);
+            }}
+          />
+      )}
+      {isAddModalOpen && (
+          <StudentEditModal
+            onClose={() => setIsAddModalOpen(false)}
+            onSave={(newStudent) => {
+                // Since handleAddStudent in App.tsx doesn't accept parameters yet,
+                // we'll need to adapt how students are added.
+                // For now, let's assume we use a specialized handler or onAddStudent.
+                (onAddStudent as any)(newStudent);
+                setIsAddModalOpen(false);
+            }}
+            isNew
           />
       )}
       {isAddModalOpen && (
@@ -167,10 +185,12 @@ interface StudentEditModalProps {
     student?: Student;
     onClose: () => void;
     onSave: (updated: any) => void;
+    onDelete?: () => void;
     isNew?: boolean;
 }
 
-const StudentEditModal: React.FC<StudentEditModalProps> = ({ student, onClose, onSave, isNew }) => {
+const StudentEditModal: React.FC<StudentEditModalProps> = ({ student, onClose, onSave, onDelete, isNew }) => {
+    const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
     const [data, setData] = useState(student ? { ...student } : {
         firstName: '',
         lastName: '',
@@ -193,7 +213,7 @@ const StudentEditModal: React.FC<StudentEditModalProps> = ({ student, onClose, o
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true">
             <div className="bg-white rounded-lg p-6 w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-xl font-bold">{isNew ? 'Schüler:in hinzufügen' : 'Schüler:in bearbeiten'}</h3>
@@ -259,11 +279,44 @@ const StudentEditModal: React.FC<StudentEditModalProps> = ({ student, onClose, o
                     )}
 
                     <div className="flex gap-4 pt-4">
+                        {!isNew && onDelete && (
+                            <button
+                                className="px-4 py-2 text-red-600 border border-red-200 hover:bg-red-50 rounded"
+                                onClick={() => setIsConfirmingDelete(true)}
+                            >
+                                <Trash2 className="w-5 h-5" />
+                            </button>
+                        )}
                         <button className="flex-grow bg-blue-600 text-white py-2 rounded font-bold" onClick={() => onSave(data)}>Speichern</button>
                         <button className="flex-grow border py-2 rounded" onClick={onClose}>Abbrechen</button>
                     </div>
                 </div>
             </div>
+
+            {isConfirmingDelete && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4">
+                    <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-200">
+                        <h4 className="text-lg font-bold text-gray-900 mb-2">Schüler:in löschen?</h4>
+                        <p className="text-sm text-gray-500 mb-6">
+                            Möchten Sie <strong>{data.firstName} {data.lastName}</strong> wirklich unwiderruflich aus der Liste entfernen?
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                className="flex-grow bg-red-600 text-white py-2 rounded font-bold hover:bg-red-700"
+                                onClick={onDelete}
+                            >
+                                Ja, löschen
+                            </button>
+                            <button
+                                className="flex-grow border border-gray-300 py-2 rounded font-medium hover:bg-gray-50"
+                                onClick={() => setIsConfirmingDelete(false)}
+                            >
+                                Abbrechen
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

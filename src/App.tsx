@@ -85,6 +85,13 @@ function App() {
     }));
   };
 
+  const handleDeleteStudent = (id: string) => {
+    setState(prev => ({
+        ...prev,
+        students: prev.students.filter(s => s.id !== id)
+    }));
+  };
+
   const handleAddStudent = (studentData?: Partial<Student>) => {
       const id = `manual-${Date.now()}`;
       const className = normalizeClassName(studentData?.className || '5a');
@@ -276,6 +283,7 @@ function App() {
                     students={state.students}
                     onUpdateStudent={handleUpdateStudent}
                     onAddStudent={handleAddStudent}
+                    onDeleteStudent={handleDeleteStudent}
                 />
             </div>
 

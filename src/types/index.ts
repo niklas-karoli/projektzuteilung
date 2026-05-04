@@ -7,6 +7,9 @@ export interface Student {
   wishes: string[];
   antiWishes: string[];
   assignedProjectId?: string;
+  recommendedProjectId?: string;
+  isRecommendationConfirmed?: boolean;
+  didNotVote?: boolean;
   errors: string[];
 }
 

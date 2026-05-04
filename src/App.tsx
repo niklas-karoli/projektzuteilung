@@ -6,7 +6,7 @@ import { ProjectTable } from './components/ProjectTable';
 import { LoadingAnimation } from './components/LoadingAnimation';
 import { ResultsView } from './components/ResultsView';
 import { Student, Project, AllocationState } from './types';
-import { getGradeLevel } from './utils/parser';
+import { getGradeLevel, normalizeClassName } from './utils/parser';
 import { allocate } from './utils/allocator';
 import { generateExports } from './utils/exporter';
 
@@ -17,6 +17,7 @@ function App() {
     isAllocated: false,
   });
   const [isCalculating, setIsCalculating] = useState(false);
+  const [currentProblemIdx, setCurrentProblemIdx] = useState(0);
 
   const handleDataLoaded = (newStudents: Student[]) => {
     setState(prev => {
@@ -60,9 +61,12 @@ function App() {
         students: prev.students.map(s => {
             if (s.id === id) {
                 const newStudent = { ...s, ...updated };
+                if (updated.className) {
+                    newStudent.className = normalizeClassName(updated.className);
+                }
                 const errors = [];
-                const classRegex = /^(\d+|EF|Q1|Q2)[a-zA-Z]?$/i;
-                if (!classRegex.test(newStudent.className.replace(/\s/g, ''))) {
+                const classRegex = /^(EF|Q1|Q2|\d+)[a-z]*$/i;
+                if (!classRegex.test(newStudent.className)) {
                     errors.push(`Ungültige Klasse: "${newStudent.className}"`);
                 }
                 const uniqueWishes = new Set(newStudent.wishes);
@@ -81,18 +85,34 @@ function App() {
     }));
   };
 
-  const handleAddStudent = () => {
+  const handleDeleteStudent = (id: string) => {
+    setState(prev => ({
+        ...prev,
+        students: prev.students.filter(s => s.id !== id)
+    }));
+  };
+
+  const handleAddStudent = (studentData?: Partial<Student>) => {
       const id = `manual-${Date.now()}`;
+      const className = normalizeClassName(studentData?.className || '5a');
       const newStudent: Student = {
           id,
-          firstName: 'Neuer',
-          lastName: 'Schüler',
-          fullName: 'Neuer Schüler',
-          className: '5a',
-          wishes: [],
-          antiWishes: [],
+          firstName: studentData?.firstName || 'Neue:r',
+          lastName: studentData?.lastName || 'Schüler:in',
+          fullName: `${studentData?.firstName || 'Neue:r'} ${studentData?.lastName || 'Schüler:in'}`,
+          className,
+          wishes: (studentData?.wishes || []).filter(Boolean),
+          antiWishes: (studentData?.antiWishes || []).filter(Boolean),
+          didNotVote: studentData?.didNotVote || false,
           errors: []
       };
+
+      // Basic validation
+      const classRegex = /^(EF|Q1|Q2|\d+)[a-z]*$/i;
+      if (!classRegex.test(newStudent.className)) {
+          newStudent.errors.push(`Ungültige Klasse: "${newStudent.className}"`);
+      }
+
       setState(prev => ({ ...prev, students: [newStudent, ...prev.students] }));
   };
 
@@ -110,16 +130,21 @@ function App() {
       }));
   };
 
-  const handleAddProject = () => {
-      const newId = String(Math.max(0, ...state.projects.map(p => parseInt(p.id)).filter(n => !isNaN(n))) + 1);
+  const handleAddProject = (projectData?: Partial<Project>) => {
+      const newId = projectData?.id || String(Math.max(0, ...state.projects.map(p => parseInt(p.id)).filter(n => !isNaN(n))) + 1);
       setState(prev => ({
           ...prev,
           projects: [...prev.projects, {
               id: newId,
-              maxParticipants: 20,
-              allowedGrades: ["5", "6", "7", "8", "9", "10", "EF", "Q1", "Q2"],
+              maxParticipants: projectData?.maxParticipants || 20,
+              allowedGrades: projectData?.allowedGrades || ["5", "6", "7", "8", "9", "10", "EF", "Q1", "Q2"],
               currentParticipants: 0
-          }]
+          }].sort((a, b) => {
+              const numA = parseInt(a.id);
+              const numB = parseInt(b.id);
+              if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+              return a.id.localeCompare(b.id);
+          })
       }));
   };
 
@@ -139,7 +164,17 @@ function App() {
 
   const handleManualOverride = (studentId: string, projectId: string) => {
       setState(prev => {
-          const newStudents = prev.students.map(s => s.id === studentId ? { ...s, assignedProjectId: projectId || undefined } : s);
+          const newStudents = prev.students.map(s => {
+              if (s.id === studentId) {
+                  const isConfirmed = !!projectId && projectId === s.recommendedProjectId;
+                  return {
+                      ...s,
+                      assignedProjectId: projectId || undefined,
+                      isRecommendationConfirmed: isConfirmed
+                  };
+              }
+              return s;
+          });
           const newProjects = prev.projects.map(p => ({
               ...p,
               currentParticipants: newStudents.filter(s => s.assignedProjectId === p.id).length
@@ -189,13 +224,17 @@ function App() {
             {problems.length > 0 && !state.isAllocated && (
                 <button
                     onClick={() => {
-                        const firstProblem = document.querySelector('.text-red-600');
-                        firstProblem?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        const allProblems = document.querySelectorAll('.text-red-600');
+                        if (allProblems.length > 0) {
+                            const nextIdx = currentProblemIdx % allProblems.length;
+                            allProblems[nextIdx].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            setCurrentProblemIdx(nextIdx + 1);
+                        }
                     }}
                     className="flex items-center px-4 py-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors font-medium"
                 >
                     <span className="mr-2">⚠️ {problems.length} Probleme</span>
-                    <span className="text-xs bg-red-700 text-white px-1.5 py-0.5 rounded-full">Springen</span>
+                    <span className="text-xs bg-red-700 text-white px-1.5 py-0.5 rounded-full">Nächstes</span>
                 </button>
             )}
         </div>
@@ -211,6 +250,7 @@ function App() {
                 students={state.students}
                 projects={state.projects}
                 onManualOverride={handleManualOverride}
+                onUpdateStudent={handleUpdateStudent}
                 onDownloadZip={handleDownloadZip}
                 onSaveState={handleSaveState}
             />
@@ -220,7 +260,7 @@ function App() {
                 <h2 className="text-xl font-semibold mb-4">Übersicht</h2>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="p-4 bg-blue-50 rounded">
-                        <p className="text-sm text-blue-600 font-medium uppercase">Schüler</p>
+                        <p className="text-sm text-blue-600 font-medium uppercase">Schüler:innen</p>
                         <p className="text-2xl font-bold">{state.students.length}</p>
                     </div>
                     <div className="p-4 bg-green-50 rounded">
@@ -238,11 +278,12 @@ function App() {
             </div>
 
             <div className="space-y-6">
-                <h2 className="text-2xl font-bold text-gray-800">1. Schüler & Wünsche</h2>
+                <h2 className="text-2xl font-bold text-gray-800">1. Schüler:innen & Wünsche</h2>
                 <StudentTable
                     students={state.students}
                     onUpdateStudent={handleUpdateStudent}
                     onAddStudent={handleAddStudent}
+                    onDeleteStudent={handleDeleteStudent}
                 />
             </div>
 

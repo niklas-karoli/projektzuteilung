@@ -151,7 +151,7 @@ function App() {
   const handleStartAllocation = () => {
       const projectsWithNoCapacity = state.projects.filter(p => !p.maxParticipants || p.maxParticipants <= 0);
       if (projectsWithNoCapacity.length > 0) {
-          alert(`Bitte geben Sie für alle Projekte eine Kapazität an (betrifft: ${projectsWithNoCapacity.map(p => p.id).join(', ')}).`);
+          alert(`Kapazität für alle Projekte angeben (betrifft: ${projectsWithNoCapacity.map(p => p.id).join(', ')}).`);
           return;
       }
 

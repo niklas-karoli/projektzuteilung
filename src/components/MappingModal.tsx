@@ -5,7 +5,6 @@ import { normalizeClassName } from '../utils/parser';
 
 interface MappingModalProps {
   headers: string[];
-  sampleRow: any[];
   rawData: any[][];
   onClose: () => void;
   onConfirm: (students: Student[]) => void;
@@ -13,7 +12,7 @@ interface MappingModalProps {
 
 type MappingType = 'firstName' | 'lastName' | 'className' | 'wish' | 'antiWish' | 'ignore';
 
-export const MappingModal: React.FC<MappingModalProps> = ({ headers, sampleRow, rawData, onClose, onConfirm }) => {
+export const MappingModal: React.FC<MappingModalProps> = ({ headers, rawData, onClose, onConfirm }) => {
   const [mappings, setMappings] = useState<MappingType[]>(headers.map(header => {
       const h = header.toLowerCase();
       if (h.includes('vorname')) return 'firstName';
@@ -91,7 +90,7 @@ export const MappingModal: React.FC<MappingModalProps> = ({ headers, sampleRow, 
         <div className="p-6 border-b flex justify-between items-center bg-gray-50">
           <div>
             <h3 className="text-2xl font-bold text-gray-800">Spaltenzuordnung</h3>
-            <p className="text-sm text-gray-500 mt-1">Bitte ordnen Sie die Spalten Ihrer Excel-Datei den entsprechenden Feldern zu.</p>
+            <p className="text-sm text-gray-500 mt-1">Spalten der Excel-Datei den entsprechenden Feldern zuordnen.</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
             <X className="w-6 h-6 text-gray-500" />
@@ -103,7 +102,7 @@ export const MappingModal: React.FC<MappingModalProps> = ({ headers, sampleRow, 
             <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
               <p className="text-sm text-amber-700">
-                <strong>Pflichtfelder fehlen:</strong> Bitte ordnen Sie mindestens <strong>Vorname</strong>, <strong>Nachname</strong> und <strong>Klasse</strong> zu.
+                <strong>Pflichtfelder fehlen:</strong> Mindestens <strong>Vorname</strong>, <strong>Nachname</strong> und <strong>Klasse</strong> zuordnen.
               </p>
             </div>
           )}
@@ -138,17 +137,10 @@ export const MappingModal: React.FC<MappingModalProps> = ({ headers, sampleRow, 
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                <tr className="bg-blue-50/30">
-                  {sampleRow.map((cell, idx) => (
-                    <td key={idx} className="px-4 py-4 text-sm text-gray-600 italic">
-                      {String(cell || '')}
-                    </td>
-                  ))}
-                </tr>
                 {rawData.slice(0, 3).map((row, rIdx) => (
-                  <tr key={rIdx}>
+                  <tr key={rIdx} className={rIdx === 0 ? 'bg-blue-50/30' : ''}>
                     {headers.map((_, cIdx) => (
-                      <td key={cIdx} className="px-4 py-3 text-sm text-gray-400">
+                      <td key={cIdx} className={`px-4 py-3 text-sm ${rIdx === 0 ? 'text-gray-600 italic' : 'text-gray-400'}`}>
                         {String(row[cIdx] || '')}
                       </td>
                     ))}
@@ -157,7 +149,6 @@ export const MappingModal: React.FC<MappingModalProps> = ({ headers, sampleRow, 
               </tbody>
             </table>
           </div>
-          <p className="text-xs text-gray-400 mt-4 text-center">Zeige Header, Beispielzeile und erste 3 Datensätze zur Orientierung.</p>
         </div>
 
         <div className="p-6 border-t bg-gray-50 flex justify-end gap-4">

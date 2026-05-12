@@ -18,7 +18,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ students, projects, on
   const [filterGrade, setFilterGrade] = useState('all');
   const [expandedProject, setExpandedProject] = useState<string | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
-  const [overviewSort, setOverviewSort] = useState<'id' | 'percentage'>('percentage');
+  const [overviewSort, setOverviewSort] = useState<'id' | 'percentage_asc' | 'percentage_desc'>('percentage_desc');
 
   const grades = ["5", "6", "7", "8", "9", "10", "EF", "Q1", "Q2"];
 
@@ -71,9 +71,12 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ students, projects, on
     return <Info className="w-4 h-4 text-yellow-500" title="Nicht im Wunschprojekt" />;
   };
 
-  const invalidVotes = sortedStudents.filter(s => s.errors.length > 0 && !s.assignedProjectId && !s.isRecommendationConfirmed);
-  const didNotVote = sortedStudents.filter(s => s.didNotVote && !s.assignedProjectId && !s.isRecommendationConfirmed);
-  const regularStudents = sortedStudents.filter(s => !invalidVotes.includes(s) && !didNotVote.includes(s));
+  const assignedStudents = sortedStudents.filter(s => s.assignedProjectId);
+  const unassignedStudents = sortedStudents.filter(s => !s.assignedProjectId);
+
+  const invalidVotes = unassignedStudents.filter(s => s.errors.length > 0 && !s.didNotVote);
+  const didNotVote = unassignedStudents.filter(s => s.didNotVote);
+  const noSlotPossible = unassignedStudents.filter(s => !s.errors.length && !s.didNotVote);
 
   return (
     <div className="space-y-8">
@@ -82,18 +85,18 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ students, projects, on
             <div className="relative max-w-xs flex-grow">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
-                    className="pl-9 pr-4 py-2 w-full border rounded text-sm"
+                    className="pl-9 pr-4 py-2 w-full border rounded text-sm outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Suchen..."
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
                 />
             </div>
-            <select className="border rounded px-3 py-2 text-sm" value={filterProject} onChange={e => setFilterProject(e.target.value)}>
+            <select className="border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={filterProject} onChange={e => setFilterProject(e.target.value)}>
                 <option value="all">Alle Projekte</option>
                 {projects.map(p => <option key={p.id} value={p.id}>Projekt {p.id}</option>)}
                 <option value="">Keine Zuteilung</option>
             </select>
-            <select className="border rounded px-3 py-2 text-sm" value={filterGrade} onChange={e => setFilterGrade(e.target.value)}>
+            <select className="border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={filterGrade} onChange={e => setFilterGrade(e.target.value)}>
                 <option value="all">Alle Stufen</option>
                 {grades.map(g => <option key={g} value={g}>{g}. Stufe</option>)}
             </select>
@@ -126,18 +129,19 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ students, projects, on
             </thead>
             <tbody className="divide-y text-sm">
                 {[
-                    { title: 'Zuteilungen', students: regularStudents },
-                    { title: 'Ungültige Wahl', students: invalidVotes },
-                    { title: 'Nicht gewählt', students: didNotVote }
+                    { title: 'Zuteilungen', students: assignedStudents },
+                    { title: 'Nicht zugeteilt (Ungültig)', students: invalidVotes },
+                    { title: 'Nicht zugeteilt (Keine Wahl)', students: didNotVote },
+                    { title: 'Nicht zugeteilt (Kein Platz möglich)', students: noSlotPossible }
                 ].map(group => (
                     <React.Fragment key={group.title}>
                         {group.students.length > 0 && (
                             <tr className="bg-gray-100 border-y">
-                                <td colSpan={5} className="px-6 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500">{group.title} ({group.students.length})</td>
+                                <td colSpan={6} className="px-6 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500">{group.title} ({group.students.length})</td>
                             </tr>
                         )}
                         {group.students.map(student => (
-                            <tr key={student.id} className={`${student.isRecommendationConfirmed ? 'bg-blue-50 hover:bg-blue-100' : (student.assignedProjectId ? 'hover:bg-gray-50' : 'bg-red-50 hover:bg-red-100')}`}>
+                            <tr key={student.id} className={`${student.isRecommendationConfirmed ? 'bg-blue-100 hover:bg-blue-200' : (student.assignedProjectId ? 'hover:bg-gray-50' : 'bg-red-50 hover:bg-red-100')}`}>
                                 <td className="px-6 py-4 font-medium">{student.fullName}</td>
                                 <td className="px-6 py-4">{student.className}</td>
                                 <td className="px-6 py-4">
@@ -206,22 +210,18 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ students, projects, on
               <div className="flex gap-4">
                   <div className="flex bg-gray-200 p-0.5 rounded-lg">
                       <button
-                        onClick={() => setOverviewSort('percentage')}
-                        className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${overviewSort === 'percentage' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                        onClick={() => setOverviewSort(overviewSort === 'percentage_desc' ? 'percentage_asc' : 'percentage_desc')}
+                        className={`px-3 py-1 text-xs font-bold rounded-md transition-all flex items-center gap-1 ${overviewSort.startsWith('percentage') ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
                       >
-                        Nach Füllgrad
+                        Füllgrad {overviewSort === 'percentage_desc' ? <ChevronDown className="w-3 h-3" /> : overviewSort === 'percentage_asc' ? <ChevronUp className="w-3 h-3" /> : ''}
                       </button>
                       <button
                         onClick={() => setOverviewSort('id')}
                         className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${overviewSort === 'id' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
                       >
-                        Nach Nummer
+                        Nummer
                       </button>
                   </div>
-                  <select className="border rounded px-2 py-1 text-sm" onChange={e => setExpandedProject(e.target.value)} value={expandedProject || ''}>
-                      <option value="">Teilnehmer:innen anzeigen...</option>
-                      {projects.map(p => <option key={p.id} value={p.id}>Projekt {p.id}</option>)}
-                  </select>
               </div>
           </div>
 
@@ -229,21 +229,26 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ students, projects, on
               <div className="grid gap-6">
                   {[...projects]
                     .sort((a, b) => {
-                        if (overviewSort === 'percentage') {
+                        if (overviewSort.startsWith('percentage')) {
                             const percA = a.currentParticipants / a.maxParticipants;
                             const percB = b.currentParticipants / b.maxParticipants;
-                            return percB - percA;
+                            return overviewSort === 'percentage_desc' ? percB - percA : percA - percB;
                         }
                         const numA = parseInt(a.id);
                         const numB = parseInt(b.id);
                         return (isNaN(numA) || isNaN(numB)) ? a.id.localeCompare(b.id) : numA - numB;
                     })
                     .map(p => {
-                      const percentage = Math.min(100, (p.currentParticipants / p.maxParticipants) * 100);
+                      const percentage = Math.min(100, (p.currentParticipants / (p.maxParticipants || 1)) * 100);
                       const isOverfilled = p.currentParticipants > p.maxParticipants;
+                      const isExpanded = expandedProject === p.id;
 
                       return (
-                          <div key={p.id} className={`border rounded-xl p-4 transition-all ${expandedProject === p.id ? 'ring-2 ring-blue-500 bg-blue-50/30' : 'hover:bg-gray-50'}`}>
+                          <div
+                            key={p.id}
+                            onClick={() => setExpandedProject(isExpanded ? null : p.id)}
+                            className={`border rounded-xl p-4 transition-all cursor-pointer ${isExpanded ? 'ring-2 ring-blue-500 bg-blue-50/30' : 'hover:bg-gray-50'}`}
+                          >
                               <div className="flex flex-wrap justify-between items-start gap-4 mb-3">
                                   <div className="flex items-center gap-3">
                                       <div className="bg-gray-800 text-white font-bold w-10 h-10 rounded-lg flex items-center justify-center text-lg shadow-sm">
@@ -261,9 +266,12 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ students, projects, on
                                           </p>
                                       </div>
                                   </div>
-                                  <div className="text-right">
+                                  <div className="text-right flex flex-col items-end">
                                       <span className={`text-xl font-black ${isOverfilled ? 'text-red-600' : 'text-blue-600'}`}>
                                           {Math.round(percentage)}%
+                                      </span>
+                                      <span className="text-[10px] text-gray-400 mt-1 flex items-center">
+                                          {isExpanded ? 'Zuklappen' : 'Teilnehmer:innen anzeigen'} {isExpanded ? <ChevronUp className="w-3 h-3 ml-1" /> : <ChevronDown className="w-3 h-3 ml-1" />}
                                       </span>
                                   </div>
                               </div>
@@ -278,7 +286,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ students, projects, on
                                   />
                               </div>
 
-                              {expandedProject === p.id && (
+                              {isExpanded && (
                                   <div className="mt-6 pt-4 border-t border-blue-100 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 animate-in fade-in slide-in-from-top-2">
                                       {students
                                         .filter(s => s.assignedProjectId === p.id)

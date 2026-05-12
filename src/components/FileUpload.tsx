@@ -62,7 +62,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onDataLoaded, onJsonLoad
             <FileType className="w-4 h-4 mr-1.5" /> Speicherstand (.json)
           </span>
         </div>
-        <p className="text-sm text-gray-400 mt-6 italic">Wählen Sie eine Datei aus, um zu beginnen</p>
+        <p className="text-sm text-gray-400 mt-6 italic">Datei zum Starten auswählen</p>
         <input
           type="file"
           accept=".xlsx,.xls,.json"
@@ -74,7 +74,6 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onDataLoaded, onJsonLoad
       {excelData && (
         <MappingModal
           headers={excelData.headers}
-          sampleRow={excelData.sampleRow}
           rawData={excelData.rawData}
           onClose={() => setExcelData(null)}
           onConfirm={(students) => {

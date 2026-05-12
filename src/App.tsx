@@ -41,7 +41,7 @@ function App() {
             const existing = prev.projects.find(p => p.id === id);
             return existing || {
                 id,
-                maxParticipants: 20,
+                maxParticipants: undefined as any,
                 allowedGrades: ["5", "6", "7", "8", "9", "10", "EF", "Q1", "Q2"],
                 currentParticipants: 0
             };
@@ -149,6 +149,12 @@ function App() {
   };
 
   const handleStartAllocation = () => {
+      const projectsWithNoCapacity = state.projects.filter(p => !p.maxParticipants || p.maxParticipants <= 0);
+      if (projectsWithNoCapacity.length > 0) {
+          alert(`Kapazität für alle Projekte angeben (betrifft: ${projectsWithNoCapacity.map(p => p.id).join(', ')}).`);
+          return;
+      }
+
       setIsCalculating(true);
       setTimeout(() => {
           const result = allocate(state.students, state.projects);

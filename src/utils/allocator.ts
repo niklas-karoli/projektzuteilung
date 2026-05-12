@@ -29,7 +29,7 @@ export const allocate = (students: Student[], projects: Project[]) => {
     rarity.set(p.id, votes > 0 ? p.maxParticipants / votes : 999);
   });
 
-  const getScore = (student: Student, project: any) => {
+  const getBalanceScore = (student: Student, project: any) => {
     let score = 0;
 
     // Grade balance score
@@ -51,11 +51,18 @@ export const allocate = (students: Student[], projects: Project[]) => {
     // Penalty for over-representing a class
     score -= (classCount / project.maxParticipants) * 25;
 
-    // Rarity bonus: Prioritize filling projects that have low demand
-    score += (rarity.get(project.id) || 0) * 10;
-
     // Fill level penalty: Prefer projects that are less full
     score -= (project.currentStudents.length / project.maxParticipants) * 20;
+
+    return score;
+  };
+
+  const getScore = (student: Student, project: any) => {
+    let score = getBalanceScore(student, project);
+
+    // Rarity bonus: Prioritize filling projects that have low demand
+    // This is only used in the first pass for students with wishes.
+    score += (rarity.get(project.id) || 0) * 10;
 
     return score;
   };
@@ -109,31 +116,55 @@ export const allocate = (students: Student[], projects: Project[]) => {
   const finalProjectMap = new Map(projects.map(p => [p.id, { ...p, currentStudents: finalStudents.filter(s => s.assignedProjectId === p.id).map(s => s.id) }]));
 
   // Pass 2: Fill gaps with students who have errors, no votes, or couldn't get their wishes
-  const fillerStudents = finalStudents.filter(s => !s.assignedProjectId);
+  // Shuffling filler students to ensure fair distribution of the remaining slots
+  const fillerStudents = _.shuffle(finalStudents.filter(s => !s.assignedProjectId));
 
-  // Sort fillers: those who HAD wishes but didn't get them might have different priority or recommendations
+  // Virtual tracking of participants to ensure we don't over-recommend to a single project
+  // and to maintain balance in the second pass.
+  const virtualProjectMap = new Map(
+    Array.from(finalProjectMap.entries()).map(([id, p]) => [
+      id,
+      { ...p, currentStudents: [...p.currentStudents] }
+    ])
+  );
+
   fillerStudents.forEach(student => {
     // Recommendation logic: find a project that is:
     // 1. Not an anti-wish
-    // 2. Has space
+    // 2. Has space (respecting virtual capacity)
     // 3. Fits grade level
-    // 4. Ideally has the best "score" (mix, rarity, etc.)
 
-    const candidates = Array.from(finalProjectMap.values())
-      .filter(p => p.currentStudents.length < p.maxParticipants && p.allowedGrades.includes(getGradeLevel(student.className)) && !student.antiWishes.includes(p.id));
+    const candidates = Array.from(virtualProjectMap.values())
+      .filter(p => {
+        return p.currentStudents.length < p.maxParticipants &&
+               p.allowedGrades.includes(getGradeLevel(student.className)) &&
+               !student.antiWishes.includes(p.id);
+      });
 
     if (candidates.length > 0) {
       // Score candidates for this filler
-      const scoredCandidates = candidates.map(p => ({
-        project: p,
-        score: getScore(student, p)
-      }));
+      const scoredCandidates = candidates.map(p => {
+        const fillPercentage = p.currentStudents.length / p.maxParticipants;
 
-      // For "didNotVote" or "errors", we might prefer "unpopular" projects (high rarity)
-      // For those with wishes that failed, we just find the best fit.
+        // Primary priority: Projects with the lowest percentage of filled capacity
+        // We use a very high weight for this to ensure even distribution across all available slots.
+        let score = (1 - fillPercentage) * 10000;
+
+        // Secondary priority: Grade and class balance
+        // We use getBalanceScore to avoid rarity bonus overriding the fill percentage logic.
+        score += getBalanceScore(student, p);
+
+        return { project: p, score };
+      });
+
       const best = _.maxBy(scoredCandidates, 'score');
       if (best) {
         student.recommendedProjectId = best.project.id;
+        // Update virtual capacity so the next filler sees this slot as taken
+        const vp = virtualProjectMap.get(best.project.id);
+        if (vp) {
+          vp.currentStudents.push(student.id);
+        }
       }
     }
   });

@@ -18,6 +18,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ students, projects, on
   const [filterGrade, setFilterGrade] = useState('all');
   const [expandedProject, setExpandedProject] = useState<string | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  const [overviewSort, setOverviewSort] = useState<'id' | 'percentage'>('percentage');
 
   const grades = ["5", "6", "7", "8", "9", "10", "EF", "Q1", "Q2"];
 
@@ -201,45 +202,104 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ students, projects, on
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
           <div className="p-4 bg-gray-50 border-b flex justify-between items-center">
-              <h3 className="font-bold">Projektauslastung (Teilnehmer:innen)</h3>
-              <select className="border rounded px-2 py-1 text-sm" onChange={e => setExpandedProject(e.target.value)} value={expandedProject || ''}>
-                  <option value="">Projekt wählen...</option>
-                  {projects.map(p => <option key={p.id} value={p.id}>Projekt {p.id}</option>)}
-              </select>
-          </div>
-          {expandedProject && (
-              <div className="p-6 animate-in fade-in slide-in-from-top-4 duration-300">
-                  {projects.filter(p => p.id === expandedProject).map(p => (
-                      <div key={p.id}>
-                          <div className="flex justify-between items-end mb-2">
-                              <div>
-                                  <h4 className="text-2xl font-bold">Projekt {p.id}</h4>
-                                  <p className="text-sm text-gray-500">Zugelassen: {p.allowedGrades.join(', ')}</p>
-                              </div>
-                              <div className="text-right">
-                                  <span className={`text-lg font-bold ${p.currentParticipants > p.maxParticipants ? 'text-red-600' : 'text-green-600'}`}>
-                                      {p.currentParticipants} / {p.maxParticipants} Plätze (Teilnehmer:innen)
-                                  </span>
-                              </div>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-4 mb-6">
-                              <div
-                                className={`h-4 rounded-full transition-all duration-500 ${p.currentParticipants > p.maxParticipants ? 'bg-red-500' : 'bg-green-500'}`}
-                                style={{ width: `${Math.min(100, (p.currentParticipants / p.maxParticipants) * 100)}%` }}
-                              />
-                          </div>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                              {students.filter(s => s.assignedProjectId === p.id).map(s => (
-                                  <div key={s.id} className="text-xs p-2 bg-gray-50 rounded border flex justify-between">
-                                      <span>{s.fullName}</span>
-                                      <span className="text-gray-400">{s.className}</span>
-                                  </div>
-                              ))}
-                          </div>
-                      </div>
-                  ))}
+              <h3 className="font-bold">Projektübersicht & Auslastung</h3>
+              <div className="flex gap-4">
+                  <div className="flex bg-gray-200 p-0.5 rounded-lg">
+                      <button
+                        onClick={() => setOverviewSort('percentage')}
+                        className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${overviewSort === 'percentage' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                      >
+                        Nach Füllgrad
+                      </button>
+                      <button
+                        onClick={() => setOverviewSort('id')}
+                        className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${overviewSort === 'id' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                      >
+                        Nach Nummer
+                      </button>
+                  </div>
+                  <select className="border rounded px-2 py-1 text-sm" onChange={e => setExpandedProject(e.target.value)} value={expandedProject || ''}>
+                      <option value="">Teilnehmer:innen anzeigen...</option>
+                      {projects.map(p => <option key={p.id} value={p.id}>Projekt {p.id}</option>)}
+                  </select>
               </div>
-          )}
+          </div>
+
+          <div className="p-6">
+              <div className="grid gap-6">
+                  {[...projects]
+                    .sort((a, b) => {
+                        if (overviewSort === 'percentage') {
+                            const percA = a.currentParticipants / a.maxParticipants;
+                            const percB = b.currentParticipants / b.maxParticipants;
+                            return percB - percA;
+                        }
+                        const numA = parseInt(a.id);
+                        const numB = parseInt(b.id);
+                        return (isNaN(numA) || isNaN(numB)) ? a.id.localeCompare(b.id) : numA - numB;
+                    })
+                    .map(p => {
+                      const percentage = Math.min(100, (p.currentParticipants / p.maxParticipants) * 100);
+                      const isOverfilled = p.currentParticipants > p.maxParticipants;
+
+                      return (
+                          <div key={p.id} className={`border rounded-xl p-4 transition-all ${expandedProject === p.id ? 'ring-2 ring-blue-500 bg-blue-50/30' : 'hover:bg-gray-50'}`}>
+                              <div className="flex flex-wrap justify-between items-start gap-4 mb-3">
+                                  <div className="flex items-center gap-3">
+                                      <div className="bg-gray-800 text-white font-bold w-10 h-10 rounded-lg flex items-center justify-center text-lg shadow-sm">
+                                          {p.id}
+                                      </div>
+                                      <div>
+                                          <div className="flex items-center gap-2">
+                                              <h4 className="font-bold text-gray-800">Projekt {p.id}</h4>
+                                              <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded uppercase font-bold tracking-wider">
+                                                  {p.allowedGrades.join(', ')}
+                                              </span>
+                                          </div>
+                                          <p className="text-xs text-gray-500">
+                                              {p.currentParticipants} von {p.maxParticipants} Plätzen belegt
+                                          </p>
+                                      </div>
+                                  </div>
+                                  <div className="text-right">
+                                      <span className={`text-xl font-black ${isOverfilled ? 'text-red-600' : 'text-blue-600'}`}>
+                                          {Math.round(percentage)}%
+                                      </span>
+                                  </div>
+                              </div>
+
+                              <div className="relative w-full h-3 bg-gray-200 rounded-full overflow-hidden shadow-inner">
+                                  <div
+                                      className={`absolute left-0 top-0 h-full transition-all duration-700 ease-out rounded-full ${
+                                          isOverfilled ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]' :
+                                          percentage > 80 ? 'bg-amber-500' : 'bg-green-500'
+                                      }`}
+                                      style={{ width: `${percentage}%` }}
+                                  />
+                              </div>
+
+                              {expandedProject === p.id && (
+                                  <div className="mt-6 pt-4 border-t border-blue-100 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 animate-in fade-in slide-in-from-top-2">
+                                      {students
+                                        .filter(s => s.assignedProjectId === p.id)
+                                        .map(s => (
+                                          <div key={s.id} className="text-[10px] p-2 bg-white rounded shadow-sm border border-blue-100 flex justify-between gap-2">
+                                              <span className="font-medium truncate">{s.fullName}</span>
+                                              <span className="text-blue-600 font-bold shrink-0">{s.className}</span>
+                                          </div>
+                                      ))}
+                                      {p.currentParticipants === 0 && (
+                                          <div className="col-span-full py-4 text-center text-gray-400 italic text-sm">
+                                              Noch keine Teilnehmer:innen zugeteilt.
+                                          </div>
+                                      )}
+                                  </div>
+                              )}
+                          </div>
+                      );
+                  })}
+              </div>
+          </div>
       </div>
     </div>
   );

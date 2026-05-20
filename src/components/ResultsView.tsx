@@ -1,7 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { Search, ChevronDown, ChevronUp, AlertTriangle, Info, Download, Save, ArrowUpDown, Check, X } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, AlertTriangle, Info, Download, Save, ArrowUpDown, Check, X, UserPlus } from 'lucide-react';
 import { Student, Project } from '../types';
 import { getGradeLevel } from '../utils/parser';
+import * as XLSX from 'xlsx';
+import { MappingModal } from './MappingModal';
 
 interface ResultsViewProps {
   students: Student[];
@@ -10,15 +12,17 @@ interface ResultsViewProps {
   onUpdateStudent: (id: string, updated: Partial<Student>) => void;
   onDownloadZip: () => void;
   onSaveState: () => void;
+  onLateVotesLoaded: (students: Student[]) => void;
 }
 
-export const ResultsView: React.FC<ResultsViewProps> = ({ students, projects, onManualOverride, onUpdateStudent, onDownloadZip, onSaveState }) => {
+export const ResultsView: React.FC<ResultsViewProps> = ({ students, projects, onManualOverride, onUpdateStudent, onDownloadZip, onSaveState, onLateVotesLoaded }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterProject, setFilterProject] = useState('all');
   const [filterGrade, setFilterGrade] = useState('all');
   const [expandedProject, setExpandedProject] = useState<string | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
   const [overviewSort, setOverviewSort] = useState<'id' | 'percentage_asc' | 'percentage_desc'>('percentage_desc');
+  const [lateVoteExcelData, setLateVoteExcelData] = useState<{ headers: string[], rawData: any[][] } | null>(null);
 
   const grades = ["5", "6", "7", "8", "9", "10", "EF", "Q1", "Q2"];
 
@@ -102,6 +106,35 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ students, projects, on
             </select>
           </div>
           <div className="flex gap-2">
+            <div className="relative group">
+                <button className="flex items-center px-4 py-2 bg-orange-100 text-orange-700 rounded hover:bg-orange-200 transition-colors text-sm font-bold border border-orange-200">
+                    <UserPlus className="w-4 h-4 mr-2" /> Nachwahlen hinzufügen
+                </button>
+                <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            const data = new Uint8Array(event.target?.result as ArrayBuffer);
+                            const workbook = XLSX.read(data, { type: 'array' });
+                            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+                            if (jsonData.length > 0) {
+                                setLateVoteExcelData({
+                                    headers: jsonData[0].map(h => String(h || '')),
+                                    rawData: jsonData.slice(1)
+                                });
+                            }
+                        };
+                        reader.readAsArrayBuffer(file);
+                        e.target.value = '';
+                    }}
+                />
+            </div>
             <button onClick={onSaveState} className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors text-sm font-medium">
                 <Save className="w-4 h-4 mr-2" /> Speicherstand
             </button>
@@ -309,6 +342,17 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ students, projects, on
               </div>
           </div>
       </div>
+      {lateVoteExcelData && (
+        <MappingModal
+            headers={lateVoteExcelData.headers}
+            rawData={lateVoteExcelData.rawData}
+            onClose={() => setLateVoteExcelData(null)}
+            onConfirm={(newStudents) => {
+                onLateVotesLoaded(newStudents);
+                setLateVoteExcelData(null);
+            }}
+        />
+      )}
     </div>
   );
 };

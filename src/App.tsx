@@ -261,7 +261,7 @@ function App() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {isCalculating && <LoadingAnimation />}
       <header className="bg-white shadow-sm py-6 px-8 sticky top-0 z-40 flex justify-between items-center border-b">
-        <h1 className="text-3xl font-bold text-gray-900">Projektzuteilung 2026</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Projektzuteilung</h1>
         <div className="flex gap-4">
             {state.students.length > 0 && !state.isAllocated && (
                 <button onClick={handleSaveState} className="px-4 py-2 border rounded hover:bg-gray-50 transition-colors">Speichern</button>

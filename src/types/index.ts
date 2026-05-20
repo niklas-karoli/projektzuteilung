@@ -18,6 +18,7 @@ export interface Project {
   maxParticipants: number;
   allowedGrades: string[]; // e.g. ["5", "6", "7", "8", "9", "10", "11", "12", "13"] or ["EF", "Q1", "Q2"]
   currentParticipants: number;
+  originalDemand?: number; // Total number of people who wanted this project in the first round
 }
 
 export interface AllocationState {

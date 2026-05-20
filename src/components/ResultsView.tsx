@@ -1,7 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { Search, ChevronDown, ChevronUp, AlertTriangle, Info, Download, Save, ArrowUpDown, Check, X } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, AlertTriangle, Info, Download, Save, ArrowUpDown, Check, X, UserPlus } from 'lucide-react';
 import { Student, Project } from '../types';
 import { getGradeLevel } from '../utils/parser';
+import * as XLSX from 'xlsx';
+import { MappingModal } from './MappingModal';
 
 interface ResultsViewProps {
   students: Student[];
@@ -10,14 +12,17 @@ interface ResultsViewProps {
   onUpdateStudent: (id: string, updated: Partial<Student>) => void;
   onDownloadZip: () => void;
   onSaveState: () => void;
+  onLateVotesLoaded: (students: Student[]) => void;
 }
 
-export const ResultsView: React.FC<ResultsViewProps> = ({ students, projects, onManualOverride, onUpdateStudent, onDownloadZip, onSaveState }) => {
+export const ResultsView: React.FC<ResultsViewProps> = ({ students, projects, onManualOverride, onUpdateStudent, onDownloadZip, onSaveState, onLateVotesLoaded }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterProject, setFilterProject] = useState('all');
   const [filterGrade, setFilterGrade] = useState('all');
   const [expandedProject, setExpandedProject] = useState<string | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  const [overviewSort, setOverviewSort] = useState<'id' | 'percentage_asc' | 'percentage_desc'>('percentage_desc');
+  const [lateVoteExcelData, setLateVoteExcelData] = useState<{ headers: string[], rawData: any[][] } | null>(null);
 
   const grades = ["5", "6", "7", "8", "9", "10", "EF", "Q1", "Q2"];
 
@@ -70,9 +75,12 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ students, projects, on
     return <Info className="w-4 h-4 text-yellow-500" title="Nicht im Wunschprojekt" />;
   };
 
-  const invalidVotes = sortedStudents.filter(s => s.errors.length > 0 && !s.assignedProjectId && !s.isRecommendationConfirmed);
-  const didNotVote = sortedStudents.filter(s => s.didNotVote && !s.assignedProjectId && !s.isRecommendationConfirmed);
-  const regularStudents = sortedStudents.filter(s => !invalidVotes.includes(s) && !didNotVote.includes(s));
+  const assignedStudents = sortedStudents.filter(s => s.assignedProjectId);
+  const unassignedStudents = sortedStudents.filter(s => !s.assignedProjectId);
+
+  const invalidVotes = unassignedStudents.filter(s => s.errors.length > 0 && !s.didNotVote);
+  const didNotVote = unassignedStudents.filter(s => s.didNotVote);
+  const noSlotPossible = unassignedStudents.filter(s => !s.errors.length && !s.didNotVote);
 
   return (
     <div className="space-y-8">
@@ -81,23 +89,52 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ students, projects, on
             <div className="relative max-w-xs flex-grow">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
-                    className="pl-9 pr-4 py-2 w-full border rounded text-sm"
+                    className="pl-9 pr-4 py-2 w-full border rounded text-sm outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Suchen..."
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
                 />
             </div>
-            <select className="border rounded px-3 py-2 text-sm" value={filterProject} onChange={e => setFilterProject(e.target.value)}>
+            <select className="border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={filterProject} onChange={e => setFilterProject(e.target.value)}>
                 <option value="all">Alle Projekte</option>
                 {projects.map(p => <option key={p.id} value={p.id}>Projekt {p.id}</option>)}
                 <option value="">Keine Zuteilung</option>
             </select>
-            <select className="border rounded px-3 py-2 text-sm" value={filterGrade} onChange={e => setFilterGrade(e.target.value)}>
+            <select className="border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" value={filterGrade} onChange={e => setFilterGrade(e.target.value)}>
                 <option value="all">Alle Stufen</option>
                 {grades.map(g => <option key={g} value={g}>{g}. Stufe</option>)}
             </select>
           </div>
           <div className="flex gap-2">
+            <div className="relative group">
+                <button className="flex items-center px-4 py-2 bg-orange-100 text-orange-700 rounded hover:bg-orange-200 transition-colors text-sm font-bold border border-orange-200">
+                    <UserPlus className="w-4 h-4 mr-2" /> Nachwahlen hinzufügen
+                </button>
+                <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            const data = new Uint8Array(event.target?.result as ArrayBuffer);
+                            const workbook = XLSX.read(data, { type: 'array' });
+                            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+                            if (jsonData.length > 0) {
+                                setLateVoteExcelData({
+                                    headers: jsonData[0].map(h => String(h || '')),
+                                    rawData: jsonData.slice(1)
+                                });
+                            }
+                        };
+                        reader.readAsArrayBuffer(file);
+                        e.target.value = '';
+                    }}
+                />
+            </div>
             <button onClick={onSaveState} className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors text-sm font-medium">
                 <Save className="w-4 h-4 mr-2" /> Speicherstand
             </button>
@@ -125,18 +162,19 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ students, projects, on
             </thead>
             <tbody className="divide-y text-sm">
                 {[
-                    { title: 'Zuteilungen', students: regularStudents },
-                    { title: 'Ungültige Wahl', students: invalidVotes },
-                    { title: 'Nicht gewählt', students: didNotVote }
+                    { title: 'Zuteilungen', students: assignedStudents },
+                    { title: 'Nicht zugeteilt (Ungültig)', students: invalidVotes },
+                    { title: 'Nicht zugeteilt (Keine Wahl)', students: didNotVote },
+                    { title: 'Nicht zugeteilt (Kein Platz möglich)', students: noSlotPossible }
                 ].map(group => (
                     <React.Fragment key={group.title}>
                         {group.students.length > 0 && (
                             <tr className="bg-gray-100 border-y">
-                                <td colSpan={5} className="px-6 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500">{group.title} ({group.students.length})</td>
+                                <td colSpan={6} className="px-6 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500">{group.title} ({group.students.length})</td>
                             </tr>
                         )}
                         {group.students.map(student => (
-                            <tr key={student.id} className={`${student.isRecommendationConfirmed ? 'bg-blue-50 hover:bg-blue-100' : (student.assignedProjectId ? 'hover:bg-gray-50' : 'bg-red-50 hover:bg-red-100')}`}>
+                            <tr key={student.id} className={`${student.isRecommendationConfirmed ? 'bg-blue-100 hover:bg-blue-200' : (student.assignedProjectId ? 'hover:bg-gray-50' : 'bg-red-50 hover:bg-red-100')}`}>
                                 <td className="px-6 py-4 font-medium">{student.fullName}</td>
                                 <td className="px-6 py-4">{student.className}</td>
                                 <td className="px-6 py-4">
@@ -201,46 +239,120 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ students, projects, on
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
           <div className="p-4 bg-gray-50 border-b flex justify-between items-center">
-              <h3 className="font-bold">Projektauslastung (Teilnehmer:innen)</h3>
-              <select className="border rounded px-2 py-1 text-sm" onChange={e => setExpandedProject(e.target.value)} value={expandedProject || ''}>
-                  <option value="">Projekt wählen...</option>
-                  {projects.map(p => <option key={p.id} value={p.id}>Projekt {p.id}</option>)}
-              </select>
-          </div>
-          {expandedProject && (
-              <div className="p-6 animate-in fade-in slide-in-from-top-4 duration-300">
-                  {projects.filter(p => p.id === expandedProject).map(p => (
-                      <div key={p.id}>
-                          <div className="flex justify-between items-end mb-2">
-                              <div>
-                                  <h4 className="text-2xl font-bold">Projekt {p.id}</h4>
-                                  <p className="text-sm text-gray-500">Zugelassen: {p.allowedGrades.join(', ')}</p>
-                              </div>
-                              <div className="text-right">
-                                  <span className={`text-lg font-bold ${p.currentParticipants > p.maxParticipants ? 'text-red-600' : 'text-green-600'}`}>
-                                      {p.currentParticipants} / {p.maxParticipants} Plätze (Teilnehmer:innen)
-                                  </span>
-                              </div>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-4 mb-6">
-                              <div
-                                className={`h-4 rounded-full transition-all duration-500 ${p.currentParticipants > p.maxParticipants ? 'bg-red-500' : 'bg-green-500'}`}
-                                style={{ width: `${Math.min(100, (p.currentParticipants / p.maxParticipants) * 100)}%` }}
-                              />
-                          </div>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                              {students.filter(s => s.assignedProjectId === p.id).map(s => (
-                                  <div key={s.id} className="text-xs p-2 bg-gray-50 rounded border flex justify-between">
-                                      <span>{s.fullName}</span>
-                                      <span className="text-gray-400">{s.className}</span>
-                                  </div>
-                              ))}
-                          </div>
-                      </div>
-                  ))}
+              <h3 className="font-bold">Projektübersicht & Auslastung</h3>
+              <div className="flex gap-4">
+                  <div className="flex bg-gray-200 p-0.5 rounded-lg">
+                      <button
+                        onClick={() => setOverviewSort(overviewSort === 'percentage_desc' ? 'percentage_asc' : 'percentage_desc')}
+                        className={`px-3 py-1 text-xs font-bold rounded-md transition-all flex items-center gap-1 ${overviewSort.startsWith('percentage') ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                      >
+                        Füllgrad {overviewSort === 'percentage_desc' ? <ChevronDown className="w-3 h-3" /> : overviewSort === 'percentage_asc' ? <ChevronUp className="w-3 h-3" /> : ''}
+                      </button>
+                      <button
+                        onClick={() => setOverviewSort('id')}
+                        className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${overviewSort === 'id' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                      >
+                        Nummer
+                      </button>
+                  </div>
               </div>
-          )}
+          </div>
+
+          <div className="p-6">
+              <div className="grid gap-6">
+                  {[...projects]
+                    .sort((a, b) => {
+                        if (overviewSort.startsWith('percentage')) {
+                            const percA = a.currentParticipants / a.maxParticipants;
+                            const percB = b.currentParticipants / b.maxParticipants;
+                            return overviewSort === 'percentage_desc' ? percB - percA : percA - percB;
+                        }
+                        const numA = parseInt(a.id);
+                        const numB = parseInt(b.id);
+                        return (isNaN(numA) || isNaN(numB)) ? a.id.localeCompare(b.id) : numA - numB;
+                    })
+                    .map(p => {
+                      const percentage = Math.min(100, (p.currentParticipants / (p.maxParticipants || 1)) * 100);
+                      const isOverfilled = p.currentParticipants > p.maxParticipants;
+                      const isExpanded = expandedProject === p.id;
+
+                      return (
+                          <div
+                            key={p.id}
+                            onClick={() => setExpandedProject(isExpanded ? null : p.id)}
+                            className={`border rounded-xl p-4 transition-all cursor-pointer ${isExpanded ? 'ring-2 ring-blue-500 bg-blue-50/30' : 'hover:bg-gray-50'}`}
+                          >
+                              <div className="flex flex-wrap justify-between items-start gap-4 mb-3">
+                                  <div className="flex items-center gap-3">
+                                      <div className="bg-gray-800 text-white font-bold w-10 h-10 rounded-lg flex items-center justify-center text-lg shadow-sm">
+                                          {p.id}
+                                      </div>
+                                      <div>
+                                          <div className="flex items-center gap-2">
+                                              <h4 className="font-bold text-gray-800">Projekt {p.id}</h4>
+                                              <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded uppercase font-bold tracking-wider">
+                                                  {p.allowedGrades.join(', ')}
+                                              </span>
+                                          </div>
+                                          <p className="text-xs text-gray-500">
+                                              {p.currentParticipants} von {p.maxParticipants} Plätzen belegt
+                                          </p>
+                                      </div>
+                                  </div>
+                                  <div className="text-right flex flex-col items-end">
+                                      <span className={`text-xl font-black ${isOverfilled ? 'text-red-600' : 'text-blue-600'}`}>
+                                          {Math.round(percentage)}%
+                                      </span>
+                                      <span className="text-[10px] text-gray-400 mt-1 flex items-center">
+                                          {isExpanded ? 'Zuklappen' : 'Teilnehmer:innen anzeigen'} {isExpanded ? <ChevronUp className="w-3 h-3 ml-1" /> : <ChevronDown className="w-3 h-3 ml-1" />}
+                                      </span>
+                                  </div>
+                              </div>
+
+                              <div className="relative w-full h-3 bg-gray-200 rounded-full overflow-hidden shadow-inner">
+                                  <div
+                                      className={`absolute left-0 top-0 h-full transition-all duration-700 ease-out rounded-full ${
+                                          isOverfilled ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]' :
+                                          percentage > 80 ? 'bg-amber-500' : 'bg-green-500'
+                                      }`}
+                                      style={{ width: `${percentage}%` }}
+                                  />
+                              </div>
+
+                              {isExpanded && (
+                                  <div className="mt-6 pt-4 border-t border-blue-100 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 animate-in fade-in slide-in-from-top-2">
+                                      {students
+                                        .filter(s => s.assignedProjectId === p.id)
+                                        .map(s => (
+                                          <div key={s.id} className="text-[10px] p-2 bg-white rounded shadow-sm border border-blue-100 flex justify-between gap-2">
+                                              <span className="font-medium truncate">{s.fullName}</span>
+                                              <span className="text-blue-600 font-bold shrink-0">{s.className}</span>
+                                          </div>
+                                      ))}
+                                      {p.currentParticipants === 0 && (
+                                          <div className="col-span-full py-4 text-center text-gray-400 italic text-sm">
+                                              Noch keine Teilnehmer:innen zugeteilt.
+                                          </div>
+                                      )}
+                                  </div>
+                              )}
+                          </div>
+                      );
+                  })}
+              </div>
+          </div>
       </div>
+      {lateVoteExcelData && (
+        <MappingModal
+            headers={lateVoteExcelData.headers}
+            rawData={lateVoteExcelData.rawData}
+            onClose={() => setLateVoteExcelData(null)}
+            onConfirm={(newStudents) => {
+                onLateVotesLoaded(newStudents);
+                setLateVoteExcelData(null);
+            }}
+        />
+      )}
     </div>
   );
 };

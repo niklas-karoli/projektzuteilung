@@ -72,9 +72,11 @@ export const ProjectTable: React.FC<ProjectTableProps> = ({ projects, onUpdatePr
                   <input
                     type="number"
                     min="1"
-                    className="w-20 border rounded px-2 py-1"
-                    value={project.maxParticipants}
+                    className={`w-20 border rounded px-2 py-1 transition-colors ${!project.maxParticipants ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                    value={project.maxParticipants || ''}
+                    onWheel={(e) => (e.target as HTMLInputElement).blur()}
                     onChange={(e) => onUpdateProject(project.id, { maxParticipants: parseInt(e.target.value) || 0 })}
+                    placeholder="Eingabe..."
                   />
                 </td>
                 <td className="px-6 py-4">

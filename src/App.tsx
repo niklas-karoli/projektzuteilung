@@ -7,7 +7,7 @@ import { LoadingAnimation } from './components/LoadingAnimation';
 import { ResultsView } from './components/ResultsView';
 import { Student, Project, AllocationState } from './types';
 import { getGradeLevel, normalizeClassName } from './utils/parser';
-import { allocate } from './utils/allocator';
+import { allocate, allocateLateVotes } from './utils/allocator';
 import { generateExports } from './utils/exporter';
 
 function App() {
@@ -41,7 +41,7 @@ function App() {
             const existing = prev.projects.find(p => p.id === id);
             return existing || {
                 id,
-                maxParticipants: 20,
+                maxParticipants: undefined as any,
                 allowedGrades: ["5", "6", "7", "8", "9", "10", "EF", "Q1", "Q2"],
                 currentParticipants: 0
             };
@@ -149,6 +149,12 @@ function App() {
   };
 
   const handleStartAllocation = () => {
+      const projectsWithNoCapacity = state.projects.filter(p => !p.maxParticipants || p.maxParticipants <= 0);
+      if (projectsWithNoCapacity.length > 0) {
+          alert(`Kapazität für alle Projekte angeben (betrifft: ${projectsWithNoCapacity.map(p => p.id).join(', ')}).`);
+          return;
+      }
+
       setIsCalculating(true);
       setTimeout(() => {
           const result = allocate(state.students, state.projects);
@@ -207,6 +213,48 @@ function App() {
       }
   };
 
+  const handleLateVotesLoaded = (newLateVoters: Student[]) => {
+      setIsCalculating(true);
+      setTimeout(() => {
+          setState(prev => {
+              // Merge late voters into existing students
+              // If a student already exists (same name/class), update their wishes and anti-wishes
+              // Otherwise add them as a new student
+              const existingStudents = [...prev.students];
+
+              newLateVoters.forEach(nv => {
+                  const existingIdx = existingStudents.findIndex(s =>
+                      s.firstName.toLowerCase() === nv.firstName.toLowerCase() &&
+                      s.lastName.toLowerCase() === nv.lastName.toLowerCase() &&
+                      s.className.toLowerCase() === nv.className.toLowerCase()
+                  );
+
+                  if (existingIdx !== -1) {
+                      existingStudents[existingIdx] = {
+                          ...existingStudents[existingIdx],
+                          wishes: nv.wishes,
+                          antiWishes: nv.antiWishes,
+                          didNotVote: false,
+                          errors: nv.errors
+                      };
+                  } else {
+                      existingStudents.push(nv);
+                  }
+              });
+
+              const result = allocateLateVotes(existingStudents, prev.projects);
+
+              return {
+                  ...prev,
+                  students: result.students,
+                  projects: result.projects,
+                  isAllocated: true
+              };
+          });
+          setIsCalculating(false);
+      }, 2000);
+  };
+
   const problems = state.students.filter(s => s.errors.length > 0);
 
   return (
@@ -253,6 +301,7 @@ function App() {
                 onUpdateStudent={handleUpdateStudent}
                 onDownloadZip={handleDownloadZip}
                 onSaveState={handleSaveState}
+                onLateVotesLoaded={handleLateVotesLoaded}
             />
         ) : (
           <>

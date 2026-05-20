@@ -173,6 +173,148 @@ export const allocate = (students: Student[], projects: Project[]) => {
     students: finalStudents,
     projects: projects.map(p => ({
       ...p,
+      originalDemand: demand.get(p.id) || 0,
+      currentParticipants: finalProjectMap.get(p.id)?.currentStudents.length || 0
+    }))
+  };
+};
+
+export const allocateLateVotes = (students: Student[], projects: Project[]) => {
+  // Respect existing assignments
+  const resultStudents = students.map(s => {
+    if (s.assignedProjectId && !s.recommendedProjectId) {
+      // Already assigned to a wish project, keep it fixed
+      return { ...s };
+    }
+    // Recommendations or unassigned students are reset for the late vote round
+    return {
+      ...s,
+      assignedProjectId: undefined,
+      recommendedProjectId: undefined,
+      isRecommendationConfirmed: false
+    };
+  });
+
+  const projectMap = new Map(projects.map(p => {
+    const assignedIds = resultStudents.filter(s => s.assignedProjectId === p.id).map(s => s.id);
+    return [p.id, { ...p, currentStudents: assignedIds }];
+  }));
+
+  // Late voters are those who were unassigned or are new (all who don't have a fixed assignedProjectId now)
+  const lateVoters = resultStudents.filter(s => !s.assignedProjectId);
+  const lateVotersWithWishes = lateVoters.filter(s => s.wishes.length > 0 && !s.didNotVote && s.errors.length === 0);
+
+  // Rarity based on ORIGINAL demand
+  const rarity = new Map<string, number>();
+  projects.forEach(p => {
+    const votes = p.originalDemand || 0;
+    rarity.set(p.id, votes > 0 ? p.maxParticipants / votes : 999);
+  });
+
+  const getBalanceScore = (student: Student, project: any) => {
+    let score = 0;
+    const gradeGroup = getGradeGroup(getGradeLevel(student.className));
+    const groupCount = project.currentStudents.filter((sid: string) => {
+      const s = resultStudents.find(st => st.id === sid);
+      return s && getGradeGroup(getGradeLevel(s.className)) === gradeGroup;
+    }).length;
+    score -= (groupCount / project.maxParticipants) * 15;
+    const classCount = project.currentStudents.filter((sid: string) => {
+      const s = resultStudents.find(st => st.id === sid);
+      return s && s.className === student.className;
+    }).length;
+    score -= (classCount / project.maxParticipants) * 25;
+    score -= (project.currentStudents.length / project.maxParticipants) * 1000; // Strong fill level penalty
+    return score;
+  };
+
+  // Allocation loop for late voters with wishes
+  const passes = 10;
+  let bestStudents = [...resultStudents];
+  let maxAssigned = -1;
+
+  for (let i = 0; i < passes; i++) {
+    // Reset state for this pass (only for late voters)
+    projectMap.forEach(p => {
+      const originalAssigned = resultStudents.filter(s => s.assignedProjectId === p.id && !s.recommendedProjectId).map(s => s.id);
+      p.currentStudents = originalAssigned;
+    });
+    resultStudents.forEach(s => {
+      if (s.recommendedProjectId || !s.assignedProjectId) s.assignedProjectId = undefined;
+    });
+
+    let shuffledLateVoters = _.shuffle(lateVotersWithWishes);
+
+    shuffledLateVoters.forEach(student => {
+      const availableWishes = student.wishes
+        .map(w => projectMap.get(w))
+        .filter(p => p && p.currentStudents.length < p.maxParticipants && p.allowedGrades.includes(getGradeLevel(student.className)));
+
+      if (availableWishes.length > 0) {
+        const scoredWishes = availableWishes.map(p => {
+          let score = getBalanceScore(student, p);
+          // Rarity bonus based on ORIGINAL demand
+          score += (rarity.get(p.id) || 0) * 10;
+          return { project: p, score };
+        });
+
+        const best = _.maxBy(scoredWishes, 'score');
+        if (best) {
+          best.project.currentStudents.push(student.id);
+          student.assignedProjectId = best.project.id;
+        }
+      }
+    });
+
+    const currentAssigned = resultStudents.filter(s => s.assignedProjectId).length;
+    if (currentAssigned > maxAssigned) {
+      maxAssigned = currentAssigned;
+      bestStudents = _.cloneDeep(resultStudents);
+    }
+  }
+
+  // Restore best allocation
+  const finalStudents = bestStudents;
+  const finalProjectMap = new Map(projects.map(p => [p.id, { ...p, currentStudents: finalStudents.filter(s => s.assignedProjectId === p.id).map(s => s.id) }]));
+
+  // Recommendations for remaining filler students (including those who didn't vote in late vote)
+  const fillerStudents = _.shuffle(finalStudents.filter(s => !s.assignedProjectId));
+  const virtualProjectMap = new Map(
+    Array.from(finalProjectMap.entries()).map(([id, p]) => [
+      id,
+      { ...p, currentStudents: [...p.currentStudents] }
+    ])
+  );
+
+  fillerStudents.forEach(student => {
+    const candidates = Array.from(virtualProjectMap.values())
+      .filter(p => {
+        return p.currentStudents.length < p.maxParticipants &&
+               p.allowedGrades.includes(getGradeLevel(student.className)) &&
+               !student.antiWishes.includes(p.id);
+      });
+
+    if (candidates.length > 0) {
+      const scoredCandidates = candidates.map(p => {
+        const fillPercentage = p.currentStudents.length / p.maxParticipants;
+        let score = (1 - fillPercentage) * 10000;
+        score += getBalanceScore(student, p);
+        return { project: p, score };
+      });
+
+      const best = _.maxBy(scoredCandidates, 'score');
+      if (best) {
+        student.recommendedProjectId = best.project.id;
+        const vp = virtualProjectMap.get(best.project.id);
+        if (vp) vp.currentStudents.push(student.id);
+      }
+    }
+  });
+
+  return {
+    students: finalStudents,
+    projects: projects.map(p => ({
+      ...p,
       currentParticipants: finalProjectMap.get(p.id)?.currentStudents.length || 0
     }))
   };
